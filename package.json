@@ -1,0 +1,11 @@
+{
+  "name": "@luxlogik/compiler-ci",
+  "version": "0.1.0",
+  "description": "Shard tests by historical timings, plan shard counts and find affected packages in JS/TS repos.",
+  "type": "module",
+  "bin": { "compiler-ci": "bin/compiler-ci.mjs" },
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "license": "UNLICENSED",
+  "private": false
+}

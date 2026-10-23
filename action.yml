@@ -1,0 +1,47 @@
+name: compiler-ci
+description: Shard tests by historical timings, plan the shard count and find affected packages (JS/TS).
+author: luxlogik
+branding: { icon: zap, color: blue }
+inputs:
+  command: { description: "shard | plan | affected", required: true }
+  runner: { description: "vitest | jest | playwright", default: vitest }
+  total: { description: "shard: total shards" }
+  index: { description: "shard: this shard, 1-based" }
+  target-minutes: { description: "plan: target wall time per shard" }
+  api-url: { description: "compiler.dev API base URL for timings and entitlements", default: "https://api.compiler.dev" }
+  org-id: { description: "compiler.dev organization id, to check the feature is enabled (optional; unreachable means allowed)" }
+  token: { description: "compiler.dev API token (timings are optional; falls back to file size)" }
+  args: { description: "extra CLI arguments", default: "" }
+outputs:
+  result: { description: "The command's stdout", value: "${{ steps.run.outputs.result }}" }
+  shards: { description: "plan: suggested shard count", value: "${{ steps.run.outputs.shards }}" }
+  matrix: { description: "plan: JSON matrix, e.g. {\"shard\":[1,2,3]}", value: "${{ steps.run.outputs.matrix }}" }
+  affected: { description: "affected: \"all\" or a JSON array of package names", value: "${{ steps.run.outputs.affected }}" }
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with: { node-version: 20 }
+    - id: run
+      shell: bash
+      env:
+        COMPILER_TOKEN: ${{ inputs.token }}
+        COMPILER_API_URL: ${{ inputs.api-url }}
+        COMPILER_ORG: ${{ inputs.org-id }}
+        IN_COMMAND: ${{ inputs.command }}
+        IN_RUNNER: ${{ inputs.runner }}
+        IN_TOTAL: ${{ inputs.total }}
+        IN_INDEX: ${{ inputs.index }}
+        IN_MINUTES: ${{ inputs.target-minutes }}
+        IN_ARGS: ${{ inputs.args }}
+      run: |
+        # Inputs go through env vars, never interpolated into the script.
+        args=("$IN_COMMAND")
+        case "$IN_COMMAND" in
+          shard) args+=(--runner "$IN_RUNNER" --total "$IN_TOTAL" --index "$IN_INDEX" --format space) ;;
+          plan) args+=(--runner "$IN_RUNNER" --target-minutes "$IN_MINUTES" --github-output) ;;
+          affected) args+=(--json --github-output) ;;
+        esac
+        # shellcheck disable=SC2086
+        out=$(node "$GITHUB_ACTION_PATH/bin/compiler-ci.mjs" "${args[@]}" $IN_ARGS)
+        { echo "result<<EOF_COMPILER_CI"; echo "$out"; echo "EOF_COMPILER_CI"; } >> "$GITHUB_OUTPUT"
